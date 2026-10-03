@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ระบบกรอกและคำนวณคะแนนเก็บนักเรียน</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--tx:#0f172a;--mut:#64748b;--bd:#e2e8f0;--alt:#f8fafc}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f172a;--card:#1e293b;--tx:#f1f5f9;--mut:#94a3b8;--bd:#334155;--alt:#243247}}
+body{font-family:'Sarabun',system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px}
+.mut{color:var(--mut)}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:center;white-space:nowrap}
+tbody tr:nth-child(even){background:var(--alt)}
+thead th{background:#1d4ed8;color:#fff;font-weight:600;position:sticky;top:0}
+td.nm{text-align:left}
+input.sc{width:64px;text-align:center;border:1px solid var(--bd);border-radius:8px;padding:4px;background:var(--card);color:var(--tx)}
+input.sc:focus{outline:2px solid #3b82f6}input.sc.bad{border-color:#ef4444;background:#fee2e2;color:#991b1b}
+.btn{padding:8px 14px;border-radius:10px;font-weight:600;font-size:14px}
+.gd{display:inline-block;min-width:34px;padding:2px 8px;border-radius:8px;font-weight:700}
+#toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateY(80px);opacity:0;transition:.3s;background:#059669;color:#fff;padding:10px 18px;border-radius:12px;z-index:50}
+#toast.show{transform:none;opacity:1}
+.ph{display:none}
+@media print{
+ @page{size:A4 landscape;margin:10mm}
+ body{background:#fff;color:#000;padding:0;font-size:11px}
+ .no-print,#toast,#modal{display:none!important}
+ .ph{display:block;text-align:center;margin-bottom:8px}
+ .card{border:none;border-radius:0}.tw{overflow:visible!important}
+ thead th{background:#e5e7eb!important;color:#000;position:static;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ th,td{border:1px solid #888;padding:2px 4px}
+ tbody tr{background:#fff!important}
+ input.sc{border:none;width:auto;background:transparent;color:#000;font-size:11px}
+ .gd{background:none!important;color:#000!important}
+}
+</style></head>
+<body>
+<div class="max-w-7xl mx-auto p-3 sm:p-6 space-y-4">
+ <header class="no-print flex flex-wrap items-center justify-between gap-3">
+  <div><h1 class="text-xl sm:text-2xl font-bold text-blue-700">📘 ระบบกรอกและคำนวณคะแนนเก็บนักเรียน</h1>
+  <p class="mut text-sm">กรอกคะแนนแล้วระบบคำนวณคะแนนรวมและเกรดให้อัตโนมัติ</p></div>
+  <select id="cls" class="card px-3 py-2 font-semibold"></select>
+ </header>
+
+ <section class="no-print grid grid-cols-2 lg:grid-cols-4 gap-3">
+  <div class="card p-4"><div class="mut text-sm">จำนวนนักเรียน</div><div id="dN" class="text-3xl font-bold text-blue-700">0</div></div>
+  <div class="card p-4"><div class="mut text-sm">คะแนนเฉลี่ยของห้อง</div><div id="dA" class="text-3xl font-bold text-emerald-600">0</div></div>
+  <div class="card p-4 col-span-2"><div class="mut text-sm mb-2">สัดส่วนเกรด</div><div id="dG" class="flex gap-1 items-end h-16"></div></div>
+ </section>
+
+ <section class="card p-3 sm:p-4">
+  <div class="ph"><h2 class="text-lg font-bold" id="pT"></h2><div id="pS"></div></div>
+  <div class="no-print flex flex-wrap gap-2 mb-3 items-center">
+   <input id="q" placeholder="🔍 ค้นหาชื่อนักเรียน..." class="card px-3 py-2 flex-1 min-w-[180px] bg-transparent">
+   <button onclick="save(1)" class="btn bg-blue-600 text-white">💾 บันทึกข้อมูล</button>
+   <button onclick="openM()" class="btn bg-emerald-600 text-white">➕ เพิ่มรายชื่อ</button>
+   <button onclick="openE()" class="btn bg-violet-600 text-white">✏️ แก้ไขหัวข้อคะแนน</button>
+   <button onclick="csv()" class="btn bg-amber-500 text-white">📄 ส่งออก CSV</button>
+   <button onclick="window.print()" class="btn bg-slate-700 text-white">🖨️ พิมพ์รายงาน</button>
+   <button onclick="reset()" class="btn bg-red-600 text-white">🗑️ ลบ/รีเซ็ตคะแนน</button>
+  </div>
+  <div class="tw overflow-x-auto" style="max-height:70vh"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+  <p class="no-print mut text-xs mt-2">เกณฑ์เกรด: A ≥80, B+ ≥75, B ≥70, C+ ≥65, C ≥60, D+ ≥55, D ≥50, F &lt;50</p>
+ </section>
+</div>
+
+<div id="modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-40 p-4">
+ <div class="card p-5 w-full max-w-sm space-y-3">
+  <h3 class="font-bold text-lg">เพิ่มรายชื่อนักเรียน</h3>
+  <input id="mNo" type="number" placeholder="เลขที่" class="card w-full px-3 py-2 bg-transparent">
+  <input id="mNm" placeholder="ชื่อ-นามสกุล" class="card w-full px-3 py-2 bg-transparent">
+  <div class="flex justify-end gap-2"><button onclick="closeM()" class="btn card">ยกเลิก</button><button onclick="addS()" class="btn bg-blue-600 text-white">เพิ่ม</button></div>
+ </div>
+</div>
+<div id="modalE" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-40 p-4">
+ <div class="card p-5 w-full max-w-lg space-y-3" style="max-height:90vh;display:flex;flex-direction:column">
+  <h3 class="font-bold text-lg">แก้ไขหัวข้อคะแนนเก็บ <span id="eC" class="mut text-sm"></span></h3>
+  <div id="eL" class="space-y-2 overflow-y-auto"></div>
+  <div class="flex justify-between items-center"><button onclick="addE()" class="btn card">➕ เพิ่มหัวข้อ</button><div class="text-sm">คะแนนเต็มรวม: <b id="eS"></b></div></div>
+  <p class="mut text-xs">การลบหัวข้อจะลบคะแนนของหัวข้อนั้นทุกคน แนะนำให้คะแนนเต็มรวมเท่ากับ 100</p>
+  <div class="flex justify-end gap-2"><button onclick="closeE()" class="btn card">ยกเลิก</button><button onclick="saveE()" class="btn bg-blue-600 text-white">บันทึกหัวข้อ</button></div>
+ </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const DATA={"2/1": {"label": "ชั้นมัธยมศึกษาปีที่ 2/1", "students": [[1, "เด็กชายกรวิทย์ ยอดตา"], [2, "เด็กชายจักรวรรดิ์ ตางจงราช"], [3, "เด็กชายจิรายุ ประดับศรี"], [4, "เด็กชายณัฐพล จันทร์เขียว"], [5, "เด็กชายทินกร มัชฌิมา"], [6, "เด็กชายธนา สีหะวงศ์"], [7, "เด็กชายนาวิน ยศภา"], [8, "เด็กชายภูพิพัฒน์ ฐานะ"], [9, "เด็กชายอติเทพ พรมน้อย"], [10, "เด็กชายอติเทพ แก้วพิมพ์"], [11, "เด็กหญิงกนกวรรณ จันทร์พรม"], [12, "เด็กหญิงกัญญาภัทร รัววิชา"], [13, "เด็กหญิงชลธิชา สีสมน้อย"], [14, "เด็กหญิงธนพร คู่ผัด"], [15, "เด็กหญิงประภาพรรณ กระนูน"], [16, "เด็กหญิงปวิชญา สิมมาพิมพ์"], [17, "เด็กหญิงเพ็ญพักตร์ มาทิพย์"], [18, "เด็กหญิงเพ็ญพิชชา พาพวย"], [19, "เด็กหญิงภาวินี ภูเรียนคู่"], [20, "เด็กหญิงวิชญาดา เทพศรี"], [21, "เด็กหญิงศกุนิชญ์ สายยางหล่อ"], [22, "เด็กหญิงศศิธร ชำนิ"], [23, "เด็กหญิงสุชาดา มณีสาย"], [24, "เด็กหญิงเสาวลักษณ์ หาโกษี"], [25, "เด็กหญิงอลินธิดา วิสุทธิสาย"], [26, "เด็กหญิงอาภัสรา กล้าหาญ"], [27, "เด็กหญิงวิลัยพร ชุมปัตชา"]], "items": [["งานชิ้นที่ 1", 10], ["งานชิ้นที่ 2", 10], ["ใบงานก่อนกลางภาค", 5], ["สอบกลางภาค", 20], ["ใบงานหลังกลางภาค", 10], ["สอบเก็บคะแนนหน่วยที่ 1", 10], ["ลายเซ็นต์", 5], ["สอบปลายภาค", 30]]}, "2/2": {"label": "ชั้นมัธยมศึกษาปีที่ 2/2", "students": [[1, "เด็กชายกรินทร์ ทวีจันทร์"], [2, "เด็กชายเจษฎากร ทิพย์รักษ์"], [3, "เด็กชายธนกร ป้อมพลอย"], [4, "เด็กชายธนากร โยคมา"], [5, "เด็กชายธนัตถ์นินทร์ ไชยเบ้า"], [6, "เด็กชายธีรเทพ สอนเต็ม"], [7, "เด็กชายนพดล เชื้อพรมมา"], [8, "เด็กชายภัทรวรรธน์ รัตนทิพย์"], [9, "เด็กชายภานุพงศ์ สายเสมา"], [10, "เด็กชายภูรินทร์ แก้วมะณี"], [11, "เด็กชายศักรินทร์ ศรีลาดเลา"], [12, "เด็กชายสราวุธ พุทธิคุณ"], [13, "เด็กชายสรวิชญ์ พุฒเขียว"], [14, "เด็กชายสิรวิชญ์ รอดพ้นภัย"], [15, "เด็กหญิงณัฐกานต์ บุญสินชัย"], [16, "เด็กหญิงนลินนิภา ราชบัญดิษฐ์"], [17, "เด็กหญิงปิยธิดา ทาระสา"], [18, "เด็กหญิงเปรมสุดา ไชยชาลี"], [19, "เด็กหญิงพนิตพร สีอุ้ย"], [20, "เด็กหญิงพัชรี ลาดพันนา"], [21, "เด็กหญิงลดาภรณ์ หาญใจ"], [22, "เด็กหญิงลัดดาวัลย์ สลักกาย"], [23, "เด็กหญิงศศิวิภา ทีบัวบาน"], [24, "เด็กหญิงอนัญญา สมหล้า"], [25, "เด็กหญิงอนัญญา สุทรวิภาค"], [26, "เด็กหญิงภัทราพร ศรีษะ"]], "items": [["งานชิ้นที่ 1", 10], ["งานชิ้นที่ 2", 10], ["ใบงานก่อนกลางภาค", 5], ["สอบกลางภาค", 20], ["ใบงานหลังกลางภาค", 10], ["สอบเก็บคะแนนหน่วยที่ 1", 10], ["ลายเซ็นต์", 5], ["สอบปลายภาค", 30]]}, "2/3": {"label": "ชั้นมัธยมศึกษาปีที่ 2/3", "students": [[1, "เด็กชายกมลเทพ คำวงษ์"], [3, "เด็กชายธนากร ดีศรีคร"], [4, "เด็กชายธนากิตร แสนเวียง"], [5, "เด็กชายธวัชชัย นาคประสม"], [6, "เด็กชายณราธิป ขมิªนเขียว"], [8, "เด็กชายรัชชานนท์ ประรังม่วง"], [10, "เด็กชายสิงหนาท พรมพลเมือง"], [11, "เด็กชายสุทธิลักษณ์ เพิ'มปลูก"], [12, "เด็กชายอนากร ทองเหลือง"], [13, "เด็กชายชัยพล แก่สูงเนิน"], [14, "เด็กหญิงจินดาพร โสภาส"], [15, "เด็กหญิงฐิติมา จิตราช"], [16, "เด็กหญิงนิราวรรณ พวงศรี"], [17, "เด็กหญิงบุญยอร จันทจร"], [18, "เด็กหญิงปณัฐดา ผาสุโพธิÍ"], [19, "เด็กหญิงปาริตา ศรีลุนทอง"], [20, "เด็กหญิงเปรมสุดา สนั'นก้อง"], [21, "เด็กหญิงพัชราภา แสงจันดา"], [22, "เด็กหญิงพีรดา พินะพงษ์"], [23, "เด็กหญิงวณิดา หรบรรพ์"]], "items": [["งานชิ้นที่ 1", 10], ["งานชิ้นที่ 2", 10], ["ใบงานก่อนกลางภาค", 5], ["สอบกลางภาค", 20], ["ใบงานหลังกลางภาค", 10], ["สอบเก็บคะแนนหน่วยที่ 1", 10], ["ลายเซ็นต์", 5], ["สอบปลายภาค", 30]]}, "4/1": {"label": "ชั้นมัธยมศึกษาปีที่ 4/1", "students": [[1, "นายณัฐวัฒน์ กะสัน"], [2, "นายอดิเทพ สอนละ"], [3, "นางสาวกมลธร เทียนคำ"], [4, "นางสาวคมคาย นนวงษา"], [5, "นางสาวณัชชา นากอก"], [6, "นางสาวณัฎฐธิดา ทองแกม"], [7, "นางสาวนิลาวัลย์ ยั่วยวนดี"], [8, "นางสาวนุชนารถ สิงห์สำราญ"], [9, "นางสาวภรวรินทร์ ธาตุสร้อย"], [10, "นางสาวกัลยรัตน์ แซ่ตั้ง"], [11, "นางสาวชัชฎาภรณ์ สุทธิบ่าว"], [12, "นางสาวพุทธิดา บุปผา"], [13, "นางสาวลดาวัลย์ พิมพ์ดี"], [14, "นางสาวโสภิยา บุญภูมิ"], [15, "นางสาวอรัญญา โพธิ์ศรี"], [16, "นางสาวพัชรภร เกตขุนทศ"], [17, "นางสาวณธิดา อันทะไชย"]], "items": [["งานชิ้นที่ 1", 10], ["ใบงาน", 10], ["สมุด", 5], ["กลางภาค", 20], ["ใบงาน", 10], ["งานชิ้นที่ 2", 10], ["สมุด", 5], ["ปลายภาค", 30]]}, "4/2": {"label": "ชั้นมัธยมศึกษาปีที่ 4/2", "students": [[1, "นายสามารถ บัวจีบ"], [2, "นายกานต์ตะวัน เวียงสมุทร"], [3, "นายธนากร วงศ์วรรณ"], [4, "นายภูมิพร จันทร์หล่ม"], [5, "นายฐิติวุฒิ ดอนหมั'น"], [6, "นายณัฐพล อุปนันท์"], [7, "นายจิรพัฒน์ ศรีษะ"], [8, "นายพงษ์ศกร ละพากุล"], [9, "นายวรรณลภย์ สายศรี"], [10, "นางสาวอรปรีญา บุญมัย"], [11, "นางสาวอรวรรณ ไพรบึง"], [12, "นางสาวปนัดดา อินเจริญ"], [13, "นางสาวอาทิตยา บัวชุมสุข"], [14, "นางสาวภัทรา บัวระภา"], [15, "นางสาวหนึ่งฤทัย ชัยโย"]], "items": [["งานชิ้นที่ 1", 10], ["ใบงาน", 10], ["สมุด", 5], ["กลางภาค", 20], ["งานชิ้นที่ 2", 10], ["ใบงาน", 10], ["สมุด", 5], ["สอบปลายภาค", 30]]}, "5/1": {"label": "ชั้นมัธยมศึกษาปีที่ 5/1", "students": [[1, "นายจิรวัฒน์ ประเสริฐแก้ว"], [2, "นายนฤเทพ วิฐาน"], [3, "นายพงศกร เถื'อนศรีจันทร์"], [4, "นายภนากร สีอุ้ย"], [5, "นายวรัญdู ทระทึก"], [6, "นายณัฐวุฒิ เย็นบำรุง"], [7, "นายณัฐวุธ ปาโม"], [8, "นายชินดนัย เศษสูงเนิน"], [9, "นายธนโชติ พาพวย"], [10, "นายรัฐธาวินทร์ เทชะ"], [11, "นายอธิวัฒน์ วิเขตกิจ"], [12, "นายสมพงษ์ ที'บ้านบ่อ"], [13, "นางสาวกัลยรัตน์ จันทร์ชาดา"], [14, "นางสาวเบญจมาภรณ์ สายยางหล่อ"], [15, "นางสาวมัลลิการ์ ข้อยุ่น"], [16, "นางสาวลาวัลย์ อัคคะนิมตย์"], [17, "นางสาวสุภาพร ศรีชัยหมื'อ"], [18, "นางสาวเกตุสุดา มีโนนทอง"], [19, "นางสาวจุฑามาศ หนูลา"], [20, "นางสาวน้ำเพชร เทียบดอกไม้"], [21, "นางสาวบุญยวีร์ เทวพิทักษ์"], [22, "นางสาวแพรวรุ่ง พลเพ็ง"], [23, "นางสาวสุพัตรา สุรมณี"], [24, "นางสาวปาริชาติ ชัยเพชร"], [25, "นางสาวจิราภา ถูวะศรี"], [26, "นางสาวปัณฑิตา ริพลทา"], [27, "นางสาวมณฑกานต์ กำกับกลาง"], [28, "นางสาวศิริพร ตะนาขาน"], [29, "นางสาวสุรัชชญา บุญอาเนตร"]], "items": [["ใบงาน", 10], ["งานชิ้นที่ 1", 10], ["สมุด", 5], ["สอบกลางภาค", 20], ["ใบงาน hero", 10], ["สอบอ่าน", 10], ["สมุด", 5], ["สอบปลายภาค", 30]]}, "5/2": {"label": "ชั้นมัธยมศึกษาปีที่ 5/2", "students": [[1, "นายบุญสิทธิ์ แสงจันทร์"], [2, "นายนที โคตรวงษา"], [3, "นายปัญญากร ศรีสุระ"], [4, "นายศุภกร ทองกุล"], [5, "นายพงศ์ปณต นะละกุล"], [6, "นายประกฤษฎิ์ พรมน้อย"], [7, "นายอัครเดช พระเวียงคำ"], [8, "นายเอกสิทธิ์ พันจิม"], [9, "นางสาวกรรลยา เกษาพันธ์"], [10, "นางสาวกัลยาณี คนึงหาญ"], [11, "นางสาวชุติกาญจน์ วะโรงค์"], [12, "นางสาวธัญรดา แสงสีเรือง"], [13, "นางสาวนพรัตน์ ตางจงราช"], [14, "นางสาวนันทิดา มาตย์วิเศษ"], [15, "นางสาวอุษามณี มะลิหวล"], [16, "นางสาวเกวลิน ขวัญเรือน"], [17, "นางสาววชิราภรณ์ เขียวหนู"], [18, "นางสาววนิดา ดาน้ำคำ"], [19, "นางสาววรัญญา ปลุกแก้ว"], [20, "นางสาวสุชาดา เพียมูล"], [21, "นางสาวปิยะธิดา ป้านภูมิ"], [22, "นางสาวพัชรพร ทิศหน่อ"], [23, "นางสาวพิยะดา สุดชาติ"], [24, "นางสาววิลาวัลย์ ลือคำหาญ"], [25, "นางสาวสุพรรษา สุโพธิ์ขันธ์"]], "items": [["ใบงาน", 10], ["งานชิ้นที่ 1", 10], ["สมุด", 5], ["สอบกลางภาค", 20], ["ใบงาน hero", 10], ["สอบอ่าน", 10], ["สมุด", 5], ["สอบปลายภาค", 30]]}};
+const KEY='gradeApp_v1',$=id=>document.getElementById(id);
+let S={};try{S=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+S.students=S.students||{};S.items=S.items||{};S.scores=S.scores||{};S.cur=S.cur||Object.keys(DATA)[0];
+const G=[[80,'A','#16a34a'],[75,'B+','#22c55e'],[70,'B','#0ea5e9'],[65,'C+','#6366f1'],[60,'C','#8b5cf6'],[55,'D+','#f59e0b'],[50,'D','#f97316'],[-1,'F','#ef4444']];
+const grade=t=>G.find(g=>t>=g[0]);
+const stu=()=>S.students[S.cur]||(S.students[S.cur]=DATA[S.cur].students.map(s=>s.slice()));
+const items=()=>S.items[S.cur]||DATA[S.cur].items;
+const sumMax=()=>items().reduce((a,i)=>a+(+i[1]||0),0);
+const sc=()=>S.scores[S.cur]||(S.scores[S.cur]={});
+const total=no=>(sc()[no]||[]).reduce((a,v)=>a+(+v||0),0);
+function toast(m,c){const t=$('toast');t.textContent=m;t.style.background=c||'#059669';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+function save(show){try{S.cur=S.cur;localStorage.setItem(KEY,JSON.stringify(S));if(show)toast('✅ บันทึกข้อมูลเรียบร้อยแล้ว')}catch(e){toast('บันทึกไม่สำเร็จ','#dc2626')}}
+function head(){const it=items();$('th').innerHTML='<tr><th>เลขที่</th><th>ชื่อ-นามสกุล</th>'+it.map(i=>`<th>${i[0]}<br><small>(${i[1]})</small></th>`).join('')+'<th>รวม<br><small>(${sumMax()})</small></th><th>เกรด</th></tr>'}
+function render(){
+ const it=items(),q=$('q').value.trim();head();
+ $('tb').innerHTML=stu().filter(s=>!q||s[1].includes(q)||String(s[0])===q).map(s=>{
+  const v=sc()[s[0]]||[];
+  return `<tr data-no="${s[0]}"><td>${s[0]}</td><td class="nm">${s[1]}</td>`+it.map((i,k)=>`<td><input class="sc" type="number" min="0" max="${i[1]}" step="0.5" inputmode="decimal" value="${v[k]??''}" data-k="${k}"></td>`).join('')+`<td class="t font-bold"></td><td class="g"></td></tr>`}).join('');
+ document.querySelectorAll('#tb tr').forEach(calc);dash();
+ const c=DATA[S.cur];$('pT').textContent='รายงานคะแนนเก็บนักเรียน '+c.label;$('pS').textContent='พิมพ์เมื่อ '+new Date().toLocaleDateString('th-TH',{dateStyle:'long'});
+}
+function calc(tr){const no=tr.dataset.no,t=total(no),g=grade(t);
+ tr.querySelector('.t').textContent=+t.toFixed(2);
+ tr.querySelector('.g').innerHTML=`<span class="gd" style="background:${g[2]}22;color:${g[2]}">${g[1]}</span>`}
+function dash(){const st=stu(),n=st.length,ts=st.map(s=>total(s[0])),avg=n?ts.reduce((a,b)=>a+b,0)/n:0,cnt={};
+ ts.forEach(t=>{const k=grade(t)[1];cnt[k]=(cnt[k]||0)+1});
+ $('dN').textContent=n;$('dA').textContent=avg.toFixed(2);
+ $('dG').innerHTML=G.map(g=>{const c=cnt[g[1]]||0,h=n?Math.max(c/n*100,4):4;return `<div class="flex-1 text-center text-xs"><div>${c}</div><div style="height:${h*0.4}px;background:${g[2]};border-radius:4px"></div><div class="font-bold">${g[1]}</div></div>`}).join('')}
+$('tb').addEventListener('input',e=>{const el=e.target;if(!el.classList.contains('sc'))return;
+ const tr=el.closest('tr'),no=tr.dataset.no,k=+el.dataset.k,mx=items()[k][1];let v=el.value;
+ el.classList.toggle('bad',v!==''&&(+v>mx||+v<0));if(v!==''&&(+v>mx||+v<0)){toast('คะแนนต้องอยู่ระหว่าง 0–'+mx,'#dc2626');return}
+ const a=sc()[no]||(sc()[no]=[]);a[k]=v===''?'':+v;calc(tr);dash()});
+$('q').oninput=render;
+$('cls').onchange=e=>{S.cur=e.target.value;$('q').value='';render();save()};
+let E=[];
+function openE(){E=items().map((i,k)=>({n:i[0],m:i[1],o:k}));$('eC').textContent=DATA[S.cur].label.replace('ชั้นมัธยมศึกษาปีที่ ','ม.');drawE();const m=$('modalE');m.classList.remove('hidden');m.classList.add('flex')}
+function closeE(){$('modalE').classList.add('hidden');$('modalE').classList.remove('flex')}
+function drawE(){$('eL').innerHTML=E.map((e,i)=>`<div class="flex gap-2 items-center"><input class="card flex-1 min-w-0 px-2 py-1 bg-transparent" value="${e.n.replace(/"/g,'&quot;')}" oninput="E[${i}].n=this.value" placeholder="ชื่อหัวข้อ"><input type="number" min="0" step="0.5" class="card w-20 px-2 py-1 bg-transparent text-center" value="${e.m}" oninput="E[${i}].m=+this.value;sumE()"><button onclick="E.splice(${i},1);drawE()" class="btn bg-red-100 text-red-700" style="padding:4px 10px">🗑️</button></div>`).join('');sumE()}
+function sumE(){$('eS').textContent=E.reduce((a,e)=>a+(+e.m||0),0)}
+function addE(){E.push({n:'',m:0,o:-1});drawE();$('eL').lastChild.firstChild.focus()}
+function saveE(){
+ if(!E.length)return toast('ต้องมีอย่างน้อย 1 หัวข้อ','#dc2626');
+ if(E.some(e=>!e.n.trim()||!(e.m>0)))return toast('กรุณากรอกชื่อหัวข้อและคะแนนเต็ม (มากกว่า 0)','#dc2626');
+ const s=sc();Object.keys(s).forEach(no=>{const old=s[no];s[no]=E.map(e=>e.o>=0&&old[e.o]!==undefined?Math.min(old[e.o],e.m):'')});
+ S.items[S.cur]=E.map(e=>[e.n.trim(),e.m]);closeE();render();save();
+ const t=sumMax();t===100?toast('✏️ บันทึกหัวข้อคะแนนแล้ว'):toast('บันทึกแล้ว แต่คะแนนเต็มรวมเป็น '+t+' (ไม่ใช่ 100)','#d97706')}
+function openM(){const m=$('modal');m.classList.remove('hidden');m.classList.add('flex');$('mNo').value=Math.max(0,...stu().map(s=>+s[0]))+1;$('mNm').value=''}
+function closeM(){$('modal').classList.add('hidden');$('modal').classList.remove('flex')}
+function addS(){const no=+$('mNo').value,nm=$('mNm').value.trim();
+ if(!no||!nm)return toast('กรุณากรอกเลขที่และชื่อ','#dc2626');
+ if(stu().some(s=>+s[0]===no))return toast('เลขที่นี้มีอยู่แล้ว','#dc2626');
+ stu().push([no,nm]);stu().sort((a,b)=>a[0]-b[0]);closeM();render();save();toast('➕ เพิ่มรายชื่อแล้ว')}
+function reset(){const m=prompt('ต้องการทำอะไร?\n1 = ล้างคะแนนของห้องนี้\n2 = ล้างข้อมูลทั้งหมด (รวมรายชื่อและหัวข้อที่แก้ไข) กลับค่าเริ่มต้น');
+ if(m==='1'){S.scores[S.cur]={}}else if(m==='2'){S.students={};S.scores={};S.items={}}else return;
+ render();save();toast('🗑️ ล้างข้อมูลแล้ว','#dc2626')}
+function csv(){const it=items(),r=[['เลขที่','ชื่อ-นามสกุล',...it.map(i=>`${i[0]} (${i[1]})`),'รวม','เกรด']];
+ stu().forEach(s=>{const v=sc()[s[0]]||[],t=total(s[0]);r.push([s[0],s[1],...it.map((_,k)=>v[k]??''),+t.toFixed(2),grade(t)[1]])});
+ const txt='\ufeff'+r.map(x=>x.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'}));
+ a.download='คะแนน_'+DATA[S.cur].label.replace(/\s|\//g,'_')+'.csv';a.click();toast('📄 ส่งออกไฟล์ CSV แล้ว')}
+$('cls').innerHTML=Object.keys(DATA).map(k=>`<option value="${k}">${DATA[k].label}</option>`).join('');
+if(!DATA[S.cur])S.cur=Object.keys(DATA)[0];$('cls').value=S.cur;render();
+</script></body></html>
